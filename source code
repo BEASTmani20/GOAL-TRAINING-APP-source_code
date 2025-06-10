@@ -1,0 +1,1009 @@
+Update code repository link: 
+
+//main.dart
+import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+import 'firebase_options.dart'; // Your generated Firebase options file
+import 'screen/welcome_page.dart';
+import 'screen/sign_in_page.dart';
+import 'screen/sign_up_page.dart';
+import 'screen/feed_your_detail_page.dart';
+import 'screen/forget_email_page.dart';
+import 'screen/forget_password_page.dart';
+import 'screen/home_page.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  runApp(MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'GoBeDreams',
+      debugShowCheckedModeBanner: false,
+      home: InitialScreenDecider(),
+      routes: {
+        '/welcome': (context) => WelcomePage(),
+        '/sign_in': (context) => SignInPage(),
+        '/sign_up': (context) => SignUpPage(),
+        '/feed_your_detail': (context) => FeedYourDetailPage(),
+        '/forget_password': (context) => ForgetPasswordPage(),
+        '/home': (context) => HomePage(),
+        '/forget_email': (context) => ForgetEmailPage(),
+  
+
+      },
+    );
+  }
+}
+
+/// Decides initial screen based on auth + user details filled or not
+class InitialScreenDecider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String>(
+      future: _checkUserStatus(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        } else {
+          final route = snapshot.data ?? '/welcome';
+          // Use Navigator with initial route depending on user status
+          return Navigator(
+            onGenerateRoute: (settings) {
+              Widget page;
+              switch (route) {
+                case '/home':
+                  page = HomePage();
+                  break;
+                case '/feed_your_detail':
+                  page = FeedYourDetailPage();
+                  break;
+                case '/welcome':
+                default:
+                  page = WelcomePage();
+                  break;
+              }
+              return MaterialPageRoute(builder: (_) => page);
+            },
+          );
+        }
+      },
+    );
+  }
+
+  Future<String> _checkUserStatus() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return '/welcome';
+
+    final userId = user.email!.split('@')[0];
+    final ref = FirebaseDatabase.instance.ref('users/$userId/detailsFilled');
+    final snapshot = await ref.get();
+
+    if (snapshot.exists && snapshot.value == true) {
+      return '/home';
+    } else {
+      return '/feed_your_detail';
+    }
+  }
+}
+
+
+//suthendication to firebase
+import 'package:firebase_auth/firebase_auth.dart';
+
+class AuthService {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  // Sign up
+  Future<UserCredential?> signUpWithEmail(String emailController, String passwordController) async {
+    try {
+      final userCredential = await _auth.createUserWithEmailAndPassword(
+        email: emailController.trim(),
+        password: passwordController.trim(),
+      );
+      return userCredential;
+    } catch (e) {
+      print('Sign up failed: $e');
+      return null;
+    }
+  }
+
+  // Sign in
+  Future<UserCredential?> signInWithEmail(String emailController, String passwordController) async {
+    try {
+      final userCredential = await _auth.signInWithEmailAndPassword(
+        email: emailController.trim(),
+        password: passwordController.trim(),
+      );
+      return userCredential;
+    } catch (e) {
+      print('Sign in failed: $e');
+      return null;
+    }
+  }
+
+  // Sign out
+  Future<void> signOut() async {
+    await _auth.signOut();
+  }
+
+  // Get current user
+  User? getCurrentUser() {
+    return _auth.currentUser;
+  }
+}
+
+
+//screens
+//welcomne page
+import 'package:flutter/material.dart';
+import 'sign_in_page.dart'; // Make sure to create this file
+import 'sign_up_page.dart'; // Make sure to create this file
+
+class WelcomePage extends StatelessWidget {
+  const WelcomePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF5A827E),
+      appBar: AppBar(
+        title: const Text('gobedreams', textAlign: TextAlign.center),
+        centerTitle: true,
+        backgroundColor: const Color(0xFFFFD586),
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const DrawerHeader(
+              decoration: BoxDecoration(color: Colors.blueGrey),
+              child: Text('Menu', style: TextStyle(color: Colors.white, fontSize: 24)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.info),
+              title: const Text('About App'),
+              onTap: () {
+                Navigator.pop(context);
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('About App'),
+                    content: const Text('GoBeDreams is your personal goal training assistant.'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('OK'),
+                      )
+                    ],
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.help),
+              title: const Text('Help'),
+              onTap: () {
+                Navigator.pop(context);
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Help'),
+                    content: const Text('Need help? Contact support@gobedreams.com.'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('OK'),
+                      )
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFAB40),
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => SignInPage()),
+                );
+              },
+              child: const Text('Sign In'),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFAB40),
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => SignUpPage()),
+                );
+              },
+              child: const Text('Sign Up'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+//signup page
+
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+class SignUpPage extends StatefulWidget {
+  @override
+  State<SignUpPage> createState() => _SignUpPageState();
+}
+
+class _SignUpPageState extends State<SignUpPage> {
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
+  final phoneController = TextEditingController();
+
+  final formKey = GlobalKey<FormState>();
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    confirmPasswordController.dispose();
+    phoneController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _register() async {
+    if (formKey.currentState!.validate()) {
+      try {
+        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: emailController.text.trim(),
+          password: passwordController.text.trim(),
+        );
+
+        if (!mounted) return;
+
+        Navigator.pushNamed(context, '/feed_your_detail');
+      } on FirebaseAuthException catch (e) {
+        String errorMessage;
+        if (e.code == 'email-already-in-use') {
+          errorMessage = 'Email is already in use';
+        } else if (e.code == 'invalid-email') {
+          errorMessage = 'Invalid email address';
+        } else if (e.code == 'weak-password') {
+          errorMessage = 'Password is too weak';
+        } else {
+          errorMessage = 'Registration failed: ${e.message}';
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorMessage)),
+          );
+        }
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF5A827E),
+      appBar: AppBar(
+        title: const Text('gobedreams'),
+        centerTitle: true,
+        backgroundColor: const Color(0xFFFFD586),
+        automaticallyImplyLeading: false,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: SingleChildScrollView(
+          child: Form(
+            key: formKey,
+            child: Column(
+              children: [
+                TextFormField(
+                  controller: emailController,
+                  validator: (value) =>
+                      value == null || value.isEmpty ? 'Please enter your email' : null,
+                  decoration: InputDecoration(
+                    hintText: 'Enter your Email',
+                    filled: true,
+                    fillColor: Colors.teal[300],
+                    hintStyle: const TextStyle(color: Colors.white),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  style: const TextStyle(color: Colors.white),
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  controller: passwordController,
+                  obscureText: true,
+                  validator: (value) =>
+                      value == null || value.isEmpty ? 'Please enter your password' : null,
+                  decoration: InputDecoration(
+                    hintText: 'Password',
+                    filled: true,
+                    fillColor: Colors.teal[300],
+                    hintStyle: const TextStyle(color: Colors.white),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  style: const TextStyle(color: Colors.white),
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  controller: confirmPasswordController,
+                  obscureText: true,
+                  validator: (value) =>
+                      value != passwordController.text ? 'Passwords do not match' : null,
+                  decoration: InputDecoration(
+                    hintText: 'Confirm Password',
+                    filled: true,
+                    fillColor: Colors.teal[300],
+                    hintStyle: const TextStyle(color: Colors.white),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  style: const TextStyle(color: Colors.white),
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  controller: phoneController,
+                  keyboardType: TextInputType.phone,
+                  validator: (value) =>
+                      value == null || value.isEmpty ? 'Please enter your phone number' : null,
+                  decoration: InputDecoration(
+                    hintText: 'Phone Number',
+                    filled: true,
+                    fillColor: Colors.teal[300],
+                    hintStyle: const TextStyle(color: Colors.white),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  style: const TextStyle(color: Colors.white),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: _register,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFAB40),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                  ),
+                  child: const Text('Submit'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+//sign in page
+
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+class SignInPage extends StatefulWidget {
+  const SignInPage({super.key});
+
+  @override
+  State<SignInPage> createState() => _SignInPageState();
+}
+
+class _SignInPageState extends State<SignInPage> {
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+  final formKey = GlobalKey<FormState>();
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> signIn() async {
+    if (formKey.currentState!.validate()) {
+      try {
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: emailController.text.trim(),
+          password: passwordController.text.trim(),
+        );
+
+        if (!mounted) return;
+        Navigator.pushNamed(context, 'feed_your_detail');
+      } on FirebaseAuthException catch (e) {
+        String errorMessage;
+        if (e.code == 'user-not-found') {
+          errorMessage = 'No user found for that email.';
+        } else if (e.code == 'wrong-password') {
+          errorMessage = 'Incorrect password.';
+        } else {
+          errorMessage = 'Sign in failed: ${e.message}';
+        }
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage)),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF5A827E),
+      appBar: AppBar(
+        title: const Text('gobedreams'),
+        centerTitle: true,
+        backgroundColor: const Color(0xFFFFD586),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: SingleChildScrollView(
+          child: Form(
+            key: formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 20),
+                const Text(
+                  'Sign In to Your Account',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 24,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 30),
+                TextFormField(
+                  controller: emailController,
+                  validator: (value) =>
+                      value == null || value.isEmpty ? 'Enter your email' : null,
+                  decoration: InputDecoration(
+                    hintText: 'Enter your Email',
+                    filled: true,
+                    fillColor: Colors.teal[300],
+                    hintStyle: const TextStyle(color: Colors.white70),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  style: const TextStyle(color: Colors.white),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  controller: passwordController,
+                  obscureText: true,
+                  validator: (value) =>
+                      value == null || value.isEmpty ? 'Enter your password' : null,
+                  decoration: InputDecoration(
+                    hintText: 'Password',
+                    filled: true,
+                    fillColor: Colors.teal[300],
+                    hintStyle: const TextStyle(color: Colors.white70),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  style: const TextStyle(color: Colors.white),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, 'forget_email');
+                      },
+                      child: const Text(
+                        'Forgot Email?',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, 'forget_password');
+                      },
+                      child: const Text(
+                        'Forgot Password?',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: signIn,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFAB40),
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  child: const Text('Submit'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+//home page 
+
+import 'package:flutter/material.dart';
+import 'goal_description_page.dart';
+
+class HomePage extends StatelessWidget {
+  final List<String> goals = [
+    'Pianist',
+    'Writer',
+    'Cinematographer',
+    'Photographer',
+    'Poet',
+    'Drawing',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("gobedreams"),
+        centerTitle: true,backgroundColor: Color(0xFFFFD586),
+      ),
+      body: Center(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: goals.map((goal) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => GoalDescriptionPage(goal: goal),
+                        ),
+                      );
+                    },
+                    child: Text(goal, style: TextStyle(fontSize: 18)),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+      backgroundColor: Color(0xFF5A827E),
+    );
+  }
+}
+
+import 'package:flutter/material.dart';
+
+class ForgetPasswordPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar( 
+        title: Text('GoBeDreams'),
+        centerTitle: true, backgroundColor: Color(0xFFFFD586),
+        leading: IconButton(
+          icon: Icon(Icons.menu),
+          onPressed: () {},
+        ),
+      ),
+      body: Center( 
+        child: Text('Forget Password Page'),
+      ),
+    );
+  }
+}
+
+import 'package:flutter/material.dart';
+
+class ForgetEmailPage extends StatelessWidget {
+  final phoneController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold( backgroundColor: Color(0xFF5A827E),
+      appBar: AppBar(title: Text('gobedreams'), 
+      backgroundColor: Color(0xFFFFD586)),
+      body: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          children: [
+            Text('Enter phone number to recover email'),
+            TextField(controller: phoneController, decoration: InputDecoration(labelText: 'Phone Number')),
+            ElevatedButton(onPressed: () {}, child: Text('Recover Email')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
+
+class FeedYourDetailPage extends StatefulWidget {
+  @override
+  State<FeedYourDetailPage> createState() => _FeedYourDetailPageState();
+}
+
+class _FeedYourDetailPageState extends State<FeedYourDetailPage> {
+  final nameController = TextEditingController();
+  final ageController = TextEditingController();
+  final standardController = TextEditingController();
+  final schoolNameController = TextEditingController();
+  final collegeNameController = TextEditingController();
+  final degreeController = TextEditingController();
+  final countryController = TextEditingController();
+  final stateController = TextEditingController();
+  final districtController = TextEditingController();
+  final pincodeController = TextEditingController();
+
+  String status = '';
+  String studentType = '';
+
+  final databaseRef = FirebaseDatabase.instance.ref();
+
+  void saveDetails() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No user is logged in')),
+      );
+      return;
+    }
+
+    final emailSafe = user.email!.replaceAll('.', '_'); // Firebase does not allow '.' in keys
+
+    final userData = {
+      'name': nameController.text,
+      'age': ageController.text,
+      'status': status,
+      'studentType': studentType,
+      'standard': standardController.text,
+      'schoolName': schoolNameController.text,
+      'degree': degreeController.text,
+      'collegeName': collegeNameController.text,
+      'country': countryController.text,
+      'state': stateController.text,
+      'district': districtController.text,
+      'pincode': pincodeController.text,
+    };
+
+    await databaseRef.child("users").child(emailSafe).set(userData);
+
+    Navigator.pushNamed(context, '/home_page');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Color(0xFF5A827E),
+      appBar: AppBar(
+        backgroundColor: Color(0xFFFFD586),
+        title: Text('GoBeDreams'),
+      
+        centerTitle: true,
+        leading: IconButton(
+          icon: Icon(Icons.menu),
+          onPressed: () {},
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Text(
+                "Feed Your Detail",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            SizedBox(height: 20),
+            buildInputField(nameController, 'Name'),
+            buildInputField(ageController, 'Age'),
+            buildDropdown(
+              'Status',
+              ['Student', 'Working'],
+              status,
+              (value) {
+                setState(() {
+                  status = value!;
+                  studentType = ''; // reset student type
+                });
+              },
+            ),
+            if (status == 'Student')
+              buildDropdown(
+                'Student Type',
+                ['School', 'College'],
+                studentType,
+                (value) {
+                  setState(() {
+                    studentType = value!;
+                  });
+                },
+              ),
+            if (status == 'Student' && studentType == 'School') ...[
+              buildInputField(standardController, 'Standard'),
+              buildInputField(schoolNameController, 'School Name'),
+            ],
+            if (status == 'Student' && studentType == 'College') ...[
+              buildInputField(degreeController, 'Degree Name'),
+              buildInputField(collegeNameController, 'College Name'),
+            ],
+            buildInputField(countryController, 'Country'),
+            buildInputField(stateController, 'State'),
+            buildInputField(districtController, 'District'),
+            buildInputField(pincodeController, 'Pincode'),
+            SizedBox(height: 20),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color.fromRGBO(255, 171, 64, 1),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
+              ),
+              onPressed: saveDetails,
+              child: Text('Submit'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildInputField(TextEditingController controller, String label) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: TextField(
+        controller: controller,
+        style: TextStyle(color: Colors.white),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(color: Colors.white),
+          filled: true,
+          fillColor: Colors.teal[300],
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget buildDropdown(String label, List<String> items, String currentValue,
+      Function(String?) onChanged) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: DropdownButtonFormField<String>(
+        value: currentValue.isEmpty ? null : currentValue,
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(color: Colors.white),
+          filled: true,
+          fillColor: Colors.teal[300],
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
+        items: items
+            .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+            .toList(),
+        onChanged: onChanged,
+        dropdownColor: Colors.teal[300],
+        iconEnabledColor: Colors.white,
+        style: TextStyle(color: Colors.white),
+      ),
+    );
+  }
+}
+
+import 'package:flutter/material.dart';
+
+class GoalDescriptionPage extends StatelessWidget {
+  final String goal;
+
+  const GoalDescriptionPage({Key? key, required this.goal}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("gobedreams"),backgroundColor: Color(0xFFFFD586),),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              goal,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'This is the description for the goal: $goal.\nHere you can provide detailed info about what this goal entails, guidance, and next steps.',
+              style: const TextStyle(fontSize: 16),
+            ),
+            const Spacer(),
+            Center(
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/test_page');
+                },
+                child: const Text("Next"),
+                
+              ), 
+              
+            )
+          ],
+        ),
+      ),backgroundColor: Color(0xFF5A827E),
+    );
+  }
+}
+
+// File generated by FlutterFire CLI.
+// ignore_for_file: type=lint
+import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kIsWeb, TargetPlatform;
+
+/// Default [FirebaseOptions] for use with your Firebase apps.
+///
+/// Example:
+/// ```dart
+/// import 'firebase_options.dart';
+/// // ...
+/// await Firebase.initializeApp(
+///   options: DefaultFirebaseOptions.currentPlatform,
+/// );
+/// ```
+class DefaultFirebaseOptions {
+  static FirebaseOptions get currentPlatform {
+    if (kIsWeb) {
+      return web;
+    }
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return android;
+      case TargetPlatform.iOS:
+        return ios;
+      case TargetPlatform.macOS:
+        return macos;
+      case TargetPlatform.windows:
+        return windows;
+      case TargetPlatform.linux:
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for linux - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
+      default:
+        throw UnsupportedError(
+          'DefaultFirebaseOptions are not supported for this platform.',
+        );
+    }
+  }
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyCqBSD37w4vNWH-cqFOW9G_GSgx_l81d8g',
+    appId: '1:950020472982:web:e218c48c8cab1f528342b7',
+    messagingSenderId: '950020472982',
+    projectId: 'final2-e6a39',
+    authDomain: 'final2-e6a39.firebaseapp.com',
+    storageBucket: 'final2-e6a39.firebasestorage.app',
+  );
+
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyAylnPNOGnbhf3tUGr23zHTaL0PGB7Ktt0',
+    appId: '1:950020472982:android:de41df10b360101d8342b7',
+    messagingSenderId: '950020472982',
+    projectId: 'final2-e6a39',
+    storageBucket: 'final2-e6a39.firebasestorage.app',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyBb7mzaEMYjldir4ivHcP7VMLUjq1XSxv4',
+    appId: '1:950020472982:ios:285568afa2f980ef8342b7',
+    messagingSenderId: '950020472982',
+    projectId: 'final2-e6a39',
+    storageBucket: 'final2-e6a39.firebasestorage.app',
+    iosBundleId: 'com.example.final2',
+  );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyBb7mzaEMYjldir4ivHcP7VMLUjq1XSxv4',
+    appId: '1:950020472982:ios:285568afa2f980ef8342b7',
+    messagingSenderId: '950020472982',
+    projectId: 'final2-e6a39',
+    storageBucket: 'final2-e6a39.firebasestorage.app',
+    iosBundleId: 'com.example.final2',
+  );
+
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyCqBSD37w4vNWH-cqFOW9G_GSgx_l81d8g',
+    appId: '1:950020472982:web:da0b62aa85ffa80b8342b7',
+    messagingSenderId: '950020472982',
+    projectId: 'final2-e6a39',
+    authDomain: 'final2-e6a39.firebaseapp.com',
+    storageBucket: 'final2-e6a39.firebasestorage.app',
+  );
+}
